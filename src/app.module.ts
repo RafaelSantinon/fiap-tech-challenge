@@ -5,8 +5,12 @@ import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { User } from './modules/users/entities/user.entity';
 import { UserToken } from './modules/auth/entities/user-token.entity';
+import { Customer } from './modules/customers/entities/customer.entity';
+import { Vehicle } from './modules/vehicles/entities/vehicle.entity';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -27,7 +31,7 @@ import { RolesGuard } from './common/guards/roles.guard';
         username: config.get<string>('database.username'),
         password: config.get<string>('database.password'),
         database: config.get<string>('database.name'),
-        entities: [User, UserToken],
+        entities: [User, UserToken, Customer, Vehicle],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: true,
         synchronize: false,
@@ -35,6 +39,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     }),
     UsersModule,
     AuthModule,
+    CustomersModule,
+    VehiclesModule,
   ],
   controllers: [HealthController],
   providers: [

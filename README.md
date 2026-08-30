@@ -27,7 +27,10 @@ src/
   modules/
     auth/              # login, refresh, logout, me + estratégia JWT
     users/             # módulo de usuários (CRUD, padrão NestJS)
-  common/              # enums, decorators (@Public, @Roles, @CurrentUser) e guards RBAC
+    customers/         # cadastro de clientes (identificação por CPF/CNPJ)
+    vehicles/          # cadastro de veículos (placa, marca, modelo, ano)
+  common/              # enums, decorators (@Public, @Roles, @CurrentUser, @IsDocument,
+                       #   @IsPlate), guards RBAC e utils de validação
   config/              # configuração e DataSource do TypeORM
   database/            # migrations
   health/              # health check
@@ -38,6 +41,8 @@ src/
 
 - [docs/como-executar.md](docs/como-executar.md) — pré-requisitos, subida da
   stack, variáveis de ambiente e problemas comuns.
+- [docs/cadastro-clientes-veiculos.md](docs/cadastro-clientes-veiculos.md) —
+  regras de validação de CPF/CNPJ e placa, normalização e inativação.
 - [docs/analise-sonarqube.md](docs/analise-sonarqube.md) — passo a passo da
   análise estática e limites de recursos.
 
@@ -124,6 +129,64 @@ curl -X POST http://localhost:3000/auth/logout \
   -H 'Content-Type: application/json' \
   -d '{"refreshToken":"<refreshToken>"}'
 ```
+
+## Cadastro de clientes e veículos (exemplos)
+
+Todas as rotas de cadastro exigem um access token de um usuário **admin**. As
+regras de validação, normalização e inativação estão em
+[docs/cadastro-clientes-veiculos.md](docs/cadastro-clientes-veiculos.md).
+
+Cadastrar um cliente (o CPF/CNPJ pode vir com ou sem máscara e é validado pelos
+dígitos verificadores):
+
+```bash
+curl -X POST http://localhost:3000/customers \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Maria Souza","document":"529.982.247-25","email":"maria@email.com","phone":"(11) 98888-7777"}'
+```
+
+Resposta:
+
+```json
+{
+  "id": "b3f1c2a4-5d6e-7f80-91a2-b3c4d5e6f708",
+  "name": "Maria Souza",
+  "document": "52998224725",
+  "documentType": "cpf",
+  "email": "maria@email.com",
+  "phone": "(11) 98888-7777",
+  "isActive": true
+}
+```
+
+Identificar o cliente pelo CPF/CNPJ:
+
+```bash
+curl http://localhost:3000/customers/document/52998224725 \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Cadastrar um veículo para esse cliente (placa antiga `ABC1234` ou Mercosul
+`ABC1D23`, gravada sem máscara e em maiúsculas):
+
+```bash
+curl -X POST http://localhost:3000/vehicles \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"plate":"abc-1d23","brand":"Volkswagen","model":"Gol","year":2020,"customerId":"<customerId>"}'
+```
+
+Listar os veículos de um cliente:
+
+```bash
+curl 'http://localhost:3000/vehicles?customerId=<customerId>' \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+`DELETE /customers/:id` e `DELETE /vehicles/:id` respondem `204` e **inativam**
+o registro (`isActive: false`) em vez de apagá-lo; use `?includeInactive=true`
+nas listagens para vê-lo e um `PATCH` com `{"isActive": true}` para reativá-lo.
 
 ## Testes
 
