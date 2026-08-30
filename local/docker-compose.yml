@@ -1,0 +1,122 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: oficina-db
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-oficina}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  seed:
+    build:
+      context: ..
+      dockerfile: local/Dockerfile
+      target: builder
+    container_name: oficina-seed
+    restart: 'no'
+    cpus: 1.0
+    mem_limit: 512m
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-oficina}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@oficina.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+    command: npx ts-node -r tsconfig-paths/register local/seeds/seed-admin.ts
+
+  app:
+    build:
+      context: ..
+      dockerfile: local/Dockerfile
+    container_name: oficina-api
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 512m
+    depends_on:
+      db:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    environment:
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-oficina}
+      JWT_SECRET: ${JWT_SECRET:-troque-por-um-segredo-forte-de-acesso}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-10m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-troque-por-um-segredo-forte-de-refresh}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+      BCRYPT_SALT_ROUNDS: ${BCRYPT_SALT_ROUNDS:-10}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrador}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@oficina.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+    ports:
+      - '${PORT:-3000}:3000'
+
+  sonarqube-db:
+    image: postgres:16-alpine
+    container_name: oficina-sonar-db
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonar_db_data:/var/lib/postgresql/data
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: oficina-sonarqube
+    restart: unless-stopped
+    depends_on:
+      - sonarqube-db
+    cpus: 2.0
+    mem_limit: 3g
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: 'true'
+      SONAR_WEB_JAVAOPTS: '-Xms128m -Xmx512m'
+      SONAR_CE_JAVAOPTS: '-Xms128m -Xmx512m'
+      SONAR_SEARCH_JAVAOPTS: '-Xms512m -Xmx512m'
+    ports:
+      - '${SONAR_PORT:-9000}:9000'
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  pgdata:
+  sonar_db_data:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:

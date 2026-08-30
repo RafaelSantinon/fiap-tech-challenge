@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+.git
+.gitignore
+*.md
+.env
+.env.*
+npm-debug.log
+local
+!local/seeds
+.claude
+skills
+.scannerwork
+src/test
+**/*.spec.ts
