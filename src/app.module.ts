@@ -7,10 +7,16 @@ import { User } from './modules/users/entities/user.entity';
 import { UserToken } from './modules/auth/entities/user-token.entity';
 import { Customer } from './modules/customers/entities/customer.entity';
 import { Vehicle } from './modules/vehicles/entities/vehicle.entity';
+import { Service } from './modules/services/entities/service.entity';
+import { Part } from './modules/parts/entities/part.entity';
+import { Supply } from './modules/supplies/entities/supply.entity';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { ServicesModule } from './modules/services/services.module';
+import { PartsModule } from './modules/parts/parts.module';
+import { SuppliesModule } from './modules/supplies/supplies.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -31,7 +37,7 @@ import { RolesGuard } from './common/guards/roles.guard';
         username: config.get<string>('database.username'),
         password: config.get<string>('database.password'),
         database: config.get<string>('database.name'),
-        entities: [User, UserToken, Customer, Vehicle],
+        entities: [User, UserToken, Customer, Vehicle, Service, Part, Supply],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: true,
         synchronize: false,
@@ -41,6 +47,9 @@ import { RolesGuard } from './common/guards/roles.guard';
     AuthModule,
     CustomersModule,
     VehiclesModule,
+    ServicesModule,
+    PartsModule,
+    SuppliesModule,
   ],
   controllers: [HealthController],
   providers: [

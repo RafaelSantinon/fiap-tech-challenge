@@ -29,8 +29,11 @@ src/
     users/             # módulo de usuários (CRUD, padrão NestJS)
     customers/         # cadastro de clientes (identificação por CPF/CNPJ)
     vehicles/          # cadastro de veículos (placa, marca, modelo, ano)
+    services/          # catálogo de serviços (preço e tempo estimado)
+    parts/             # catálogo de peças (código, preço e estoque)
+    supplies/          # catálogo de insumos (unidade de medida e estoque)
   common/              # enums, decorators (@Public, @Roles, @CurrentUser, @IsDocument,
-                       #   @IsPlate), guards RBAC e utils de validação
+                       #   @IsPlate), guards RBAC, utils de validação e de normalização
   config/              # configuração e DataSource do TypeORM
   database/            # migrations
   health/              # health check
@@ -43,6 +46,9 @@ src/
   stack, variáveis de ambiente e problemas comuns.
 - [docs/cadastro-clientes-veiculos.md](docs/cadastro-clientes-veiculos.md) —
   regras de validação de CPF/CNPJ e placa, normalização e inativação.
+- [docs/catalogo-servicos-pecas-insumos.md](docs/catalogo-servicos-pecas-insumos.md) —
+  campos de serviços, peças e insumos, normalização de código e o que já existe
+  de controle de estoque.
 - [docs/analise-sonarqube.md](docs/analise-sonarqube.md) — passo a passo da
   análise estática e limites de recursos.
 
@@ -187,6 +193,71 @@ curl 'http://localhost:3000/vehicles?customerId=<customerId>' \
 `DELETE /customers/:id` e `DELETE /vehicles/:id` respondem `204` e **inativam**
 o registro (`isActive: false`) em vez de apagá-lo; use `?includeInactive=true`
 nas listagens para vê-lo e um `PATCH` com `{"isActive": true}` para reativá-lo.
+
+## Catálogo de serviços, peças e insumos (exemplos)
+
+Assim como o cadastro, todas as rotas do catálogo exigem um access token de um
+usuário **admin**. Os campos de cada recurso e o alcance do controle de estoque
+estão em
+[docs/catalogo-servicos-pecas-insumos.md](docs/catalogo-servicos-pecas-insumos.md).
+
+Cadastrar um serviço (preço e tempo estimado de execução):
+
+```bash
+curl -X POST http://localhost:3000/services \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Troca de óleo","description":"Substituição do óleo do motor e do filtro.","price":189.9,"estimatedMinutes":60}'
+```
+
+Cadastrar uma peça (o código é gravado sem espaços e em maiúsculas):
+
+```bash
+curl -X POST http://localhost:3000/parts \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"flt oil-001","name":"Filtro de óleo","brand":"Bosch","unitPrice":49.9,"stockQuantity":10,"minimumStock":2}'
+```
+
+Resposta:
+
+```json
+{
+  "id": "eb6e4078-8464-4a8c-bff8-c426dfb06bc8",
+  "code": "FLTOIL-001",
+  "name": "Filtro de óleo",
+  "description": null,
+  "brand": "Bosch",
+  "unitPrice": 49.9,
+  "stockQuantity": 10,
+  "minimumStock": 2,
+  "isActive": true
+}
+```
+
+Cadastrar um insumo (com unidade de medida `un`, `l`, `ml`, `kg` ou `g`):
+
+```bash
+curl -X POST http://localhost:3000/supplies \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"OLEO-5W30","name":"Óleo sintético 5W30","unit":"l","unitPrice":38.5,"stockQuantity":40,"minimumStock":10}'
+```
+
+Identificar uma peça pelo código e abastecer o estoque:
+
+```bash
+curl http://localhost:3000/parts/code/fltoil-001 \
+  -H 'Authorization: Bearer <accessToken>'
+
+curl -X PATCH http://localhost:3000/parts/<id> \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"stockQuantity":25}'
+```
+
+`DELETE /services/:id`, `DELETE /parts/:id` e `DELETE /supplies/:id` respondem
+`204` e **inativam** o item, do mesmo modo que o cadastro.
 
 ## Testes
 

@@ -4,6 +4,9 @@ import { User } from '../modules/users/entities/user.entity';
 import { UserToken } from '../modules/auth/entities/user-token.entity';
 import { Customer } from '../modules/customers/entities/customer.entity';
 import { Vehicle } from '../modules/vehicles/entities/vehicle.entity';
+import { Service } from '../modules/services/entities/service.entity';
+import { Part } from '../modules/parts/entities/part.entity';
+import { Supply } from '../modules/supplies/entities/supply.entity';
 
 loadEnv({ path: 'local/.env' });
 loadEnv();
@@ -15,7 +18,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DB_USER ?? 'postgres',
   password: process.env.DB_PASSWORD ?? 'postgres',
   database: process.env.DB_NAME ?? 'oficina',
-  entities: [User, UserToken, Customer, Vehicle],
+  entities: [User, UserToken, Customer, Vehicle, Service, Part, Supply],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false,
   migrationsRun: false,
