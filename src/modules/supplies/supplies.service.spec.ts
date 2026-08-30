@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { SuppliesService } from './supplies.service';
 import { Supply } from './entities/supply.entity';
 import { MeasurementUnit } from '../../common/enums/measurement-unit.enum';
@@ -23,6 +24,7 @@ describe('SuppliesService', () => {
       unit: MeasurementUnit.L,
       unitPrice: 38.5,
       stockQuantity: 40,
+      reservedQuantity: 0,
       minimumStock: 10,
       isActive: true,
       createdAt: new Date(),
@@ -30,7 +32,14 @@ describe('SuppliesService', () => {
       ...overrides,
     }) as Supply;
 
+  let manager: { findOne: jest.Mock; save: jest.Mock };
+
   beforeEach(async () => {
+    manager = {
+      findOne: jest.fn(),
+      save: jest.fn((_entity, value) => Promise.resolve(value)),
+    };
+
     repo = {
       findOne: jest.fn(),
       find: jest.fn(),
@@ -239,6 +248,116 @@ describe('SuppliesService', () => {
 
       await expect(service.remove('supply-1')).rejects.toBeInstanceOf(
         NotFoundException,
+      );
+    });
+  });
+
+  describe('availableQuantity', () => {
+    it('should discount the reserved quantity from the stock', () => {
+      const supply = buildSupply({ stockQuantity: 10, reservedQuantity: 3 });
+
+      expect(service.availableQuantity(supply)).toBe(7);
+    });
+  });
+
+  describe('assertAvailable', () => {
+    it('should return the supply when there is enough free stock', async () => {
+      const existing = buildSupply({ stockQuantity: 10, reservedQuantity: 2 });
+      repo.findOne.mockResolvedValue(existing);
+
+      await expect(service.assertAvailable('supply-1', 8)).resolves.toBe(
+        existing,
+      );
+    });
+
+    it('should reject when the free stock is not enough', async () => {
+      repo.findOne.mockResolvedValue(
+        buildSupply({ stockQuantity: 10, reservedQuantity: 5 }),
+      );
+
+      await expect(
+        service.assertAvailable('supply-1', 6),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('reserve', () => {
+    it('should lock the row and increase the reserved quantity', async () => {
+      manager.findOne.mockResolvedValue(
+        buildSupply({ stockQuantity: 10, reservedQuantity: 1 }),
+      );
+
+      await service.reserve('supply-1', 4, manager as unknown as EntityManager);
+
+      expect(manager.findOne).toHaveBeenCalledWith(
+        Supply,
+        expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(manager.save).toHaveBeenCalledWith(
+        Supply,
+        expect.objectContaining({ reservedQuantity: 5 }),
+      );
+    });
+
+    it('should reject when the free stock is not enough', async () => {
+      manager.findOne.mockResolvedValue(
+        buildSupply({ stockQuantity: 10, reservedQuantity: 8 }),
+      );
+
+      await expect(
+        service.reserve('supply-1', 3, manager as unknown as EntityManager),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw when the supply does not exist', async () => {
+      manager.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.reserve('supply-1', 1, manager as unknown as EntityManager),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('release', () => {
+    it('should give the reserved quantity back', async () => {
+      manager.findOne.mockResolvedValue(
+        buildSupply({ stockQuantity: 10, reservedQuantity: 4 }),
+      );
+
+      await service.release('supply-1', 3, manager as unknown as EntityManager);
+
+      expect(manager.save).toHaveBeenCalledWith(
+        Supply,
+        expect.objectContaining({ reservedQuantity: 1, stockQuantity: 10 }),
+      );
+    });
+
+    it('should never leave a negative reserved quantity', async () => {
+      manager.findOne.mockResolvedValue(
+        buildSupply({ stockQuantity: 10, reservedQuantity: 1 }),
+      );
+
+      await service.release('supply-1', 5, manager as unknown as EntityManager);
+
+      expect(manager.save).toHaveBeenCalledWith(
+        Supply,
+        expect.objectContaining({ reservedQuantity: 0 }),
+      );
+    });
+  });
+
+  describe('consume', () => {
+    it('should take the quantity out of the stock and of the reservation', async () => {
+      manager.findOne.mockResolvedValue(
+        buildSupply({ stockQuantity: 10, reservedQuantity: 4 }),
+      );
+
+      await service.consume('supply-1', 4, manager as unknown as EntityManager);
+
+      expect(manager.save).toHaveBeenCalledWith(
+        Supply,
+        expect.objectContaining({ reservedQuantity: 0, stockQuantity: 6 }),
       );
     });
   });

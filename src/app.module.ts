@@ -10,6 +10,11 @@ import { Vehicle } from './modules/vehicles/entities/vehicle.entity';
 import { Service } from './modules/services/entities/service.entity';
 import { Part } from './modules/parts/entities/part.entity';
 import { Supply } from './modules/supplies/entities/supply.entity';
+import { ServiceOrder } from './modules/service-orders/entities/service-order.entity';
+import { ServiceOrderService } from './modules/service-orders/entities/service-order-service.entity';
+import { ServiceOrderPart } from './modules/service-orders/entities/service-order-part.entity';
+import { ServiceOrderSupply } from './modules/service-orders/entities/service-order-supply.entity';
+import { Quote } from './modules/quotes/entities/quote.entity';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
@@ -17,6 +22,11 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { ServicesModule } from './modules/services/services.module';
 import { PartsModule } from './modules/parts/parts.module';
 import { SuppliesModule } from './modules/supplies/supplies.module';
+import { StockModule } from './modules/stock/stock.module';
+import { QuotesModule } from './modules/quotes/quotes.module';
+import { ServiceOrdersModule } from './modules/service-orders/service-orders.module';
+import { ServiceOrderWorkflowModule } from './modules/service-order-workflow/service-order-workflow.module';
+import { ServiceOrderMetricsModule } from './modules/service-order-metrics/service-order-metrics.module';
 import { HealthController } from './health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -37,7 +47,20 @@ import { RolesGuard } from './common/guards/roles.guard';
         username: config.get<string>('database.username'),
         password: config.get<string>('database.password'),
         database: config.get<string>('database.name'),
-        entities: [User, UserToken, Customer, Vehicle, Service, Part, Supply],
+        entities: [
+          User,
+          UserToken,
+          Customer,
+          Vehicle,
+          Service,
+          Part,
+          Supply,
+          ServiceOrder,
+          ServiceOrderService,
+          ServiceOrderPart,
+          ServiceOrderSupply,
+          Quote,
+        ],
         migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
         migrationsRun: true,
         synchronize: false,
@@ -50,6 +73,11 @@ import { RolesGuard } from './common/guards/roles.guard';
     ServicesModule,
     PartsModule,
     SuppliesModule,
+    StockModule,
+    QuotesModule,
+    ServiceOrdersModule,
+    ServiceOrderWorkflowModule,
+    ServiceOrderMetricsModule,
   ],
   controllers: [HealthController],
   providers: [

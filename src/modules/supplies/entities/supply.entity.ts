@@ -37,6 +37,9 @@ export class Supply {
   @Column({ name: 'stock_quantity', type: 'integer', default: 0 })
   stockQuantity: number;
 
+  @Column({ name: 'reserved_quantity', type: 'integer', default: 0 })
+  reservedQuantity: number;
+
   @Column({ name: 'minimum_stock', type: 'integer', default: 0 })
   minimumStock: number;
 

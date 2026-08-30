@@ -32,6 +32,12 @@ src/
     services/          # catálogo de serviços (preço e tempo estimado)
     parts/             # catálogo de peças (código, preço e estoque)
     supplies/          # catálogo de insumos (unidade de medida e estoque)
+    stock/             # reserva, consumo e devolução de estoque
+    quotes/            # o orçamento: totais, status e consulta
+    service-orders/    # a OS: entidades, máquina de status, CRUD e itens
+    service-order-workflow/  # políticas: gera o orçamento, aprova, recusa
+    service-order-metrics/   # tempo médio por status e por serviço
+    notifications/     # envio do orçamento ao cliente (log nesta entrega)
   common/              # enums, decorators (@Public, @Roles, @CurrentUser, @IsDocument,
                        #   @IsPlate), guards RBAC, utils de validação e de normalização
   config/              # configuração e DataSource do TypeORM
@@ -49,6 +55,9 @@ src/
 - [docs/catalogo-servicos-pecas-insumos.md](docs/catalogo-servicos-pecas-insumos.md) —
   campos de serviços, peças e insumos, normalização de código e o que já existe
   de controle de estoque.
+- [docs/ordens-de-servico.md](docs/ordens-de-servico.md) — máquina de status,
+  orçamento automático, movimentação de estoque, APIs públicas do cliente e
+  métricas de tempo.
 - [docs/analise-sonarqube.md](docs/analise-sonarqube.md) — passo a passo da
   análise estática e limites de recursos.
 
@@ -70,6 +79,11 @@ Em seguida:
 - Swagger: <http://localhost:3000/docs>
 - Health check: <http://localhost:3000/health>
 - SonarQube: <http://localhost:9000> (login inicial `admin` / `admin`)
+
+O Swagger é agrupado por audiência: `auth` e `users`; o cadastro em `customers`
+e `vehicles`; o catálogo em `services`, `parts` e `supplies`; e a ordem de
+serviço em `service-orders` (a ordem em si), `service-order-items` (montagem),
+`quotes` (orçamentos), `public` (o canal do cliente, sem token) e `metrics`.
 
 Para parar: `docker compose -f local/docker-compose.yml down` (adicione `-v`
 para apagar também os volumes de dados).
@@ -230,6 +244,8 @@ Resposta:
   "brand": "Bosch",
   "unitPrice": 49.9,
   "stockQuantity": 10,
+  "reservedQuantity": 0,
+  "availableQuantity": 10,
   "minimumStock": 2,
   "isActive": true
 }
@@ -259,11 +275,134 @@ curl -X PATCH http://localhost:3000/parts/<id> \
 `DELETE /services/:id`, `DELETE /parts/:id` e `DELETE /supplies/:id` respondem
 `204` e **inativam** o item, do mesmo modo que o cadastro.
 
+`reservedQuantity` é a quantidade já prometida a ordens de serviço aguardando
+aprovação, e `availableQuantity` é o que ainda pode ser prometido — as duas são
+mantidas pela Ordem de Serviço, nunca pelo `PATCH` do catálogo.
+
+## Ordens de serviço e orçamento (exemplos)
+
+As rotas de `/service-orders` e `/quotes` aceitam **admin e mecânico**; as duas
+rotas de `/metrics` são só do **admin**; as de `/public/service-orders` **não
+pedem token**. A etapa é entregue em cinco módulos — as regras de status, de
+estoque e de geração do orçamento, e o desenho dos módulos, estão em
+[docs/ordens-de-servico.md](docs/ordens-de-servico.md).
+
+Abrir a ordem e iniciar o diagnóstico:
+
+```bash
+curl -X POST http://localhost:3000/service-orders \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"customerId":"<id>","vehicleId":"<id>","description":"Barulho na suspensão dianteira."}'
+
+curl -X PATCH http://localhost:3000/service-orders/<id>/status \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"in_diagnosis"}'
+```
+
+Incluir os itens. O orçamento nasce sozinho quando os **três** grupos têm ao
+menos um item:
+
+```bash
+curl -X POST http://localhost:3000/service-orders/<id>/services \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"serviceId":"<id>","quantity":1}'
+
+curl -X POST http://localhost:3000/service-orders/<id>/parts \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"partId":"<id>","quantity":2}'
+
+curl -X POST http://localhost:3000/service-orders/<id>/supplies \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"supplyId":"<id>","quantity":4}'
+```
+
+A resposta da terceira chamada já vem com o orçamento e a ordem aguardando
+aprovação:
+
+```json
+{
+  "id": "9c1f0a2e-3b4c-4d5e-8f90-a1b2c3d4e5f6",
+  "number": "OS-000042",
+  "status": "awaiting_approval",
+  "statusDurations": { "received": 42, "in_diagnosis": 318 },
+  "quote": {
+    "status": "pending",
+    "servicesTotal": 189.9,
+    "partsTotal": 99.8,
+    "suppliesTotal": 154,
+    "totalAmount": 443.7
+  }
+}
+```
+
+O envio do e-mail aparece no log da aplicação:
+
+```
+[NotificationsService] E-mail do orçamento da ordem OS-000042 enviado para Maria Silva <maria@exemplo.com> no valor de R$ 443.70.
+```
+
+O cliente acompanha e responde pelo número da ordem, sem token:
+
+```bash
+curl http://localhost:3000/public/service-orders/OS-000042/status
+# {"number":"OS-000042","status":"awaiting_approval"}
+
+curl http://localhost:3000/public/service-orders/OS-000042/quote
+
+curl -X POST http://localhost:3000/public/service-orders/OS-000042/quote/approve
+# aprova, dá baixa no estoque e coloca a ordem em execução
+
+curl -X POST http://localhost:3000/public/service-orders/OS-000042/quote/reject
+# recusa, devolve a reserva de estoque e finaliza a ordem
+```
+
+Concluir e entregar, e depois consultar as métricas como admin:
+
+```bash
+curl -X PATCH http://localhost:3000/service-orders/<id>/status \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"finished"}'
+
+curl -X PATCH http://localhost:3000/service-orders/<id>/status \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"delivered"}'
+
+curl http://localhost:3000/metrics/service-orders/average-time-per-status \
+  -H 'Authorization: Bearer <accessToken>'
+# [{"status":"in_diagnosis","averageSeconds":318,"orders":4}, ...]
+
+curl http://localhost:3000/metrics/services/average-execution-time \
+  -H 'Authorization: Bearer <accessToken>'
+# [{"serviceId":"...","serviceName":"Troca de óleo","averageSeconds":7200,"orders":8}]
+```
+
+O orçamento também é recurso próprio, útil para ver o que está parado
+esperando o cliente:
+
+```bash
+curl 'http://localhost:3000/quotes?status=pending' \
+  -H 'Authorization: Bearer <accessToken>'
+
+curl http://localhost:3000/quotes/<id> \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+`DELETE /service-orders/:id` responde `204` e **inativa** a ordem, devolvendo a
+reserva de estoque se ela ainda aguardava aprovação. `?includeInactive=true`
+traz as inativas de volta na listagem.
+
 ## Testes
 
 ```bash
 npm test           # unitários
-npm run test:cov   # unitários com cobertura (domínio de auth ~100%)
+npm run test:cov   # unitários com cobertura (domínios de auth e de OS em 100%)
 npm run test:e2e   # integração (requer Postgres — use: docker compose -f local/docker-compose.yml up -d db)
 ```
 

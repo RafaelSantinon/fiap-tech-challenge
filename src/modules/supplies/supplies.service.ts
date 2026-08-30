@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, Repository } from 'typeorm';
 import { Supply } from './entities/supply.entity';
 import { CreateSupplyDto } from './dto/create-supply.dto';
 import { UpdateSupplyDto } from './dto/update-supply.dto';
@@ -89,6 +89,70 @@ export class SuppliesService {
     const supply = await this.findOne(id);
     supply.isActive = false;
     await this.suppliesRepository.save(supply);
+  }
+
+  availableQuantity(supply: Supply): number {
+    return supply.stockQuantity - supply.reservedQuantity;
+  }
+
+  async assertAvailable(id: string, quantity: number): Promise<Supply> {
+    const supply = await this.findOne(id);
+    if (this.availableQuantity(supply) < quantity) {
+      throw new ConflictException(
+        `Estoque insuficiente para o insumo ${supply.code}.`,
+      );
+    }
+    return supply;
+  }
+
+  async reserve(
+    id: string,
+    quantity: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const supply = await this.lockForUpdate(id, manager);
+    if (this.availableQuantity(supply) < quantity) {
+      throw new ConflictException(
+        `Estoque insuficiente para o insumo ${supply.code}.`,
+      );
+    }
+    supply.reservedQuantity += quantity;
+    await manager.save(Supply, supply);
+  }
+
+  async release(
+    id: string,
+    quantity: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const supply = await this.lockForUpdate(id, manager);
+    supply.reservedQuantity = Math.max(0, supply.reservedQuantity - quantity);
+    await manager.save(Supply, supply);
+  }
+
+  async consume(
+    id: string,
+    quantity: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const supply = await this.lockForUpdate(id, manager);
+    supply.reservedQuantity = Math.max(0, supply.reservedQuantity - quantity);
+    supply.stockQuantity = Math.max(0, supply.stockQuantity - quantity);
+    await manager.save(Supply, supply);
+  }
+
+  private async lockForUpdate(
+    id: string,
+    manager: EntityManager,
+  ): Promise<Supply> {
+    const supply = await manager.findOne(Supply, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!supply) {
+      throw new NotFoundException('Insumo não encontrado.');
+    }
+    return supply;
   }
 
   private async assertCodeIsFree(code: string): Promise<void> {

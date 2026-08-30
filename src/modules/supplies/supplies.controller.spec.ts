@@ -24,6 +24,7 @@ describe('SuppliesController', () => {
       unit: MeasurementUnit.L,
       unitPrice: 38.5,
       stockQuantity: 40,
+      reservedQuantity: 0,
       minimumStock: 10,
       isActive: true,
       createdAt: new Date(),

@@ -4,9 +4,9 @@ Este documento descreve o catálogo entregue sobre o cadastro de clientes e
 veículos: o CRUD de serviços (`/services`), o CRUD de peças (`/parts`) e o CRUD
 de insumos (`/supplies`), todos restritos ao papel `admin`.
 
-São os três recursos que a Ordem de Serviço vai consumir na etapa seguinte:
-o serviço define o que a oficina executa e quanto cobra; a peça e o insumo
-definem o que é aplicado no veículo e quanto há em estoque.
+São os três recursos que a Ordem de Serviço consome: o serviço define o que a
+oficina executa e quanto cobra; a peça e o insumo definem o que é aplicado no
+veículo e quanto há em estoque.
 
 ## De onde vêm as regras
 
@@ -25,7 +25,7 @@ tabela única de itens.
 | Comando "Valida se existe a peça" / "o insumo" | `GET /parts/code/:code` e `GET /supplies/code/:code` |
 | Comando "Adiciona a nova peça" / "o novo insumo" | `POST /parts` e `POST /supplies` |
 | Comando "Adiciona quantidade ao estoque da peça" / "do insumo" | `PATCH /parts/:id` e `PATCH /supplies/:id` com `stockQuantity` |
-| Comandos "Reserva", "Consome" e "Devolve" | etapa da Ordem de Serviço, fora deste escopo |
+| Comandos "Reserva", "Consome" e "Devolve" | nascem de eventos da OS — veja [ordens-de-servico.md](ordens-de-servico.md) |
 
 O enunciado do Tech Challenge exige, na gestão administrativa, o "CRUD de
 serviços" e o "CRUD de peças e insumos, com controle de estoque".
@@ -59,6 +59,7 @@ contra esse valor que o tempo real medido na OS será comparado.
 | `brand` | `varchar(60)` | opcional |
 | `unitPrice` | `numeric(10,2)` | obrigatório, `>= 0` |
 | `stockQuantity` | `integer` | `>= 0`, padrão `0` |
+| `reservedQuantity` | `integer` | padrão `0`, mantido pela Ordem de Serviço |
 | `minimumStock` | `integer` | `>= 0`, padrão `0` |
 | `isActive` | `boolean` | inicia em `true` |
 
@@ -98,21 +99,36 @@ do Postgres devolve esse tipo como **string**, então as colunas usam o
 valor para número na leitura. Na API o preço trafega sempre como número:
 `"unitPrice": 49.9`, nunca `"49.90"`.
 
-## Controle de estoque nesta etapa
+## Controle de estoque
 
 `stockQuantity` e `minimumStock` são campos de cadastro: entram no `POST` e são
 alterados pelo `PATCH`. É assim que o administrador abastece o estoque, o que
 cobre o comando "Adiciona quantidade ao estoque" do board.
 
-O que **não** está aqui, deliberadamente: reserva, consumo e devolução. No
-Event Storming os três nascem de eventos da Ordem de Serviço — "Reservou as
-peças no estoque", "Peças consumidas do estoque", "Peças retornam ao estoque" —
-e dependem de uma OS existente para saber quanto reservar e para quem. Eles
-serão implementados junto com a OS.
+A movimentação — reserva, consumo e devolução — **não** acontece por aqui. No
+Event Storming os três nascem de eventos da Ordem de Serviço ("Reservou as peças
+no estoque", "Peças consumidas do estoque", "Peças retornam ao estoque") e
+dependem de uma OS existente para saber quanto reservar e para quem. Estão
+implementados na etapa da OS e descritos em
+[ordens-de-servico.md](ordens-de-servico.md).
 
-`minimumStock` também ainda não dispara nada. Ele registra a quantidade mínima
-desejada e serve de base para o alerta de estoque baixo (o ponto de atenção
-"Alerta?" do board), que será construído na mesma etapa.
+O que a OS trouxe para estas duas tabelas foi a coluna `reserved_quantity`: a
+quantidade já prometida a ordens aguardando aprovação. Ela continua no estoque
+físico, mas não pode ser prometida a outra ordem, então o `GET /parts` e o
+`GET /supplies` expõem os três números:
+
+| Campo | Significado |
+| ----- | ----------- |
+| `stockQuantity` | o que existe fisicamente na prateleira |
+| `reservedQuantity` | o que já está reservado para ordens em aberto |
+| `availableQuantity` | `stockQuantity - reservedQuantity`, o que pode ser prometido |
+
+Um `PATCH` com `stockQuantity` sobrescreve o estoque físico e não mexe nas
+reservas — é a operação de abastecimento, não de movimentação.
+
+`minimumStock` ainda não dispara nada. Ele registra a quantidade mínima desejada
+e serve de base para o alerta de estoque baixo (o ponto de atenção "Alerta?" do
+board), que segue como evolução.
 
 ## Exclusão é inativação
 

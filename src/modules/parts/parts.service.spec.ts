@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { PartsService } from './parts.service';
 import { Part } from './entities/part.entity';
 
@@ -22,6 +23,7 @@ describe('PartsService', () => {
       brand: 'Bosch',
       unitPrice: 49.9,
       stockQuantity: 10,
+      reservedQuantity: 0,
       minimumStock: 2,
       isActive: true,
       createdAt: new Date(),
@@ -29,7 +31,14 @@ describe('PartsService', () => {
       ...overrides,
     }) as Part;
 
+  let manager: { findOne: jest.Mock; save: jest.Mock };
+
   beforeEach(async () => {
+    manager = {
+      findOne: jest.fn(),
+      save: jest.fn((_entity, value) => Promise.resolve(value)),
+    };
+
     repo = {
       findOne: jest.fn(),
       find: jest.fn(),
@@ -236,6 +245,116 @@ describe('PartsService', () => {
 
       await expect(service.remove('part-1')).rejects.toBeInstanceOf(
         NotFoundException,
+      );
+    });
+  });
+
+  describe('availableQuantity', () => {
+    it('should discount the reserved quantity from the stock', () => {
+      const part = buildPart({ stockQuantity: 10, reservedQuantity: 3 });
+
+      expect(service.availableQuantity(part)).toBe(7);
+    });
+  });
+
+  describe('assertAvailable', () => {
+    it('should return the part when there is enough free stock', async () => {
+      const existing = buildPart({ stockQuantity: 10, reservedQuantity: 2 });
+      repo.findOne.mockResolvedValue(existing);
+
+      await expect(service.assertAvailable('part-1', 8)).resolves.toBe(
+        existing,
+      );
+    });
+
+    it('should reject when the free stock is not enough', async () => {
+      repo.findOne.mockResolvedValue(
+        buildPart({ stockQuantity: 10, reservedQuantity: 5 }),
+      );
+
+      await expect(service.assertAvailable('part-1', 6)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+  });
+
+  describe('reserve', () => {
+    it('should lock the row and increase the reserved quantity', async () => {
+      manager.findOne.mockResolvedValue(
+        buildPart({ stockQuantity: 10, reservedQuantity: 1 }),
+      );
+
+      await service.reserve('part-1', 4, manager as unknown as EntityManager);
+
+      expect(manager.findOne).toHaveBeenCalledWith(
+        Part,
+        expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(manager.save).toHaveBeenCalledWith(
+        Part,
+        expect.objectContaining({ reservedQuantity: 5 }),
+      );
+    });
+
+    it('should reject when the free stock is not enough', async () => {
+      manager.findOne.mockResolvedValue(
+        buildPart({ stockQuantity: 10, reservedQuantity: 8 }),
+      );
+
+      await expect(
+        service.reserve('part-1', 3, manager as unknown as EntityManager),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw when the part does not exist', async () => {
+      manager.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.reserve('part-1', 1, manager as unknown as EntityManager),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('release', () => {
+    it('should give the reserved quantity back', async () => {
+      manager.findOne.mockResolvedValue(
+        buildPart({ stockQuantity: 10, reservedQuantity: 4 }),
+      );
+
+      await service.release('part-1', 3, manager as unknown as EntityManager);
+
+      expect(manager.save).toHaveBeenCalledWith(
+        Part,
+        expect.objectContaining({ reservedQuantity: 1, stockQuantity: 10 }),
+      );
+    });
+
+    it('should never leave a negative reserved quantity', async () => {
+      manager.findOne.mockResolvedValue(
+        buildPart({ stockQuantity: 10, reservedQuantity: 1 }),
+      );
+
+      await service.release('part-1', 5, manager as unknown as EntityManager);
+
+      expect(manager.save).toHaveBeenCalledWith(
+        Part,
+        expect.objectContaining({ reservedQuantity: 0 }),
+      );
+    });
+  });
+
+  describe('consume', () => {
+    it('should take the quantity out of the stock and of the reservation', async () => {
+      manager.findOne.mockResolvedValue(
+        buildPart({ stockQuantity: 10, reservedQuantity: 4 }),
+      );
+
+      await service.consume('part-1', 4, manager as unknown as EntityManager);
+
+      expect(manager.save).toHaveBeenCalledWith(
+        Part,
+        expect.objectContaining({ reservedQuantity: 0, stockQuantity: 6 }),
       );
     });
   });

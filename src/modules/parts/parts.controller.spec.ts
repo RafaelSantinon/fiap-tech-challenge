@@ -23,6 +23,7 @@ describe('PartsController', () => {
       brand: 'Bosch',
       unitPrice: 49.9,
       stockQuantity: 10,
+      reservedQuantity: 0,
       minimumStock: 2,
       isActive: true,
       createdAt: new Date(),

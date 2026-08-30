@@ -26,6 +26,15 @@ export class PartResponseDto {
   @ApiProperty({ example: 10 })
   stockQuantity: number;
 
+  @ApiProperty({ example: 3 })
+  reservedQuantity: number;
+
+  @ApiProperty({
+    example: 7,
+    description: 'Estoque livre para novas ordens de serviço.',
+  })
+  availableQuantity: number;
+
   @ApiProperty({ example: 2 })
   minimumStock: number;
 
@@ -47,6 +56,8 @@ export class PartResponseDto {
     dto.brand = part.brand;
     dto.unitPrice = part.unitPrice;
     dto.stockQuantity = part.stockQuantity;
+    dto.reservedQuantity = part.reservedQuantity;
+    dto.availableQuantity = part.stockQuantity - part.reservedQuantity;
     dto.minimumStock = part.minimumStock;
     dto.isActive = part.isActive;
     dto.createdAt = part.createdAt;

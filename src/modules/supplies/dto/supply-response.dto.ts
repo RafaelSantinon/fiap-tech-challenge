@@ -27,6 +27,15 @@ export class SupplyResponseDto {
   @ApiProperty({ example: 40 })
   stockQuantity: number;
 
+  @ApiProperty({ example: 12 })
+  reservedQuantity: number;
+
+  @ApiProperty({
+    example: 28,
+    description: 'Estoque livre para novas ordens de serviço.',
+  })
+  availableQuantity: number;
+
   @ApiProperty({ example: 10 })
   minimumStock: number;
 
@@ -48,6 +57,8 @@ export class SupplyResponseDto {
     dto.unit = supply.unit;
     dto.unitPrice = supply.unitPrice;
     dto.stockQuantity = supply.stockQuantity;
+    dto.reservedQuantity = supply.reservedQuantity;
+    dto.availableQuantity = supply.stockQuantity - supply.reservedQuantity;
     dto.minimumStock = supply.minimumStock;
     dto.isActive = supply.isActive;
     dto.createdAt = supply.createdAt;

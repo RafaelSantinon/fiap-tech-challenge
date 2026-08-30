@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, Repository } from 'typeorm';
 import { Part } from './entities/part.entity';
 import { CreatePartDto } from './dto/create-part.dto';
 import { UpdatePartDto } from './dto/update-part.dto';
@@ -84,6 +84,70 @@ export class PartsService {
     const part = await this.findOne(id);
     part.isActive = false;
     await this.partsRepository.save(part);
+  }
+
+  availableQuantity(part: Part): number {
+    return part.stockQuantity - part.reservedQuantity;
+  }
+
+  async assertAvailable(id: string, quantity: number): Promise<Part> {
+    const part = await this.findOne(id);
+    if (this.availableQuantity(part) < quantity) {
+      throw new ConflictException(
+        `Estoque insuficiente para a peça ${part.code}.`,
+      );
+    }
+    return part;
+  }
+
+  async reserve(
+    id: string,
+    quantity: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const part = await this.lockForUpdate(id, manager);
+    if (this.availableQuantity(part) < quantity) {
+      throw new ConflictException(
+        `Estoque insuficiente para a peça ${part.code}.`,
+      );
+    }
+    part.reservedQuantity += quantity;
+    await manager.save(Part, part);
+  }
+
+  async release(
+    id: string,
+    quantity: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const part = await this.lockForUpdate(id, manager);
+    part.reservedQuantity = Math.max(0, part.reservedQuantity - quantity);
+    await manager.save(Part, part);
+  }
+
+  async consume(
+    id: string,
+    quantity: number,
+    manager: EntityManager,
+  ): Promise<void> {
+    const part = await this.lockForUpdate(id, manager);
+    part.reservedQuantity = Math.max(0, part.reservedQuantity - quantity);
+    part.stockQuantity = Math.max(0, part.stockQuantity - quantity);
+    await manager.save(Part, part);
+  }
+
+  private async lockForUpdate(
+    id: string,
+    manager: EntityManager,
+  ): Promise<Part> {
+    const part = await manager.findOne(Part, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!part) {
+      throw new NotFoundException('Peça não encontrada.');
+    }
+    return part;
   }
 
   private async assertCodeIsFree(code: string): Promise<void> {
