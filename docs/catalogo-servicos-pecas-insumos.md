@@ -166,9 +166,13 @@ Consequências:
 - Unitários: `src/common/utils/code.util.spec.ts`,
   `src/common/utils/money.transformer.spec.ts` e os specs de service e
   controller dos três módulos.
-- Integração: `src/test/catalogo.e2e-spec.ts` percorre os três CRUDs
-  (criação com código normalizado → busca por código → atualização de estoque →
-  inativação → listagem com e sem inativos) e confere os bloqueios 401 e 403.
+- Integração: um arquivo por módulo — `src/test/services.e2e-spec.ts`,
+  `src/test/parts.e2e-spec.ts` e `src/test/supplies.e2e-spec.ts`. Cada um
+  percorre criação com código normalizado → busca por código → atualização de
+  estoque → inativação → listagem com e sem inativos, confere
+  `reservedQuantity`/`availableQuantity` na resposta e fecha com o bloco
+  `access control` (401 e 403). A movimentação de estoque em si é exercitada em
+  `src/test/stock.e2e-spec.ts`.
 
 Os testes e2e usam o mesmo banco da aplicação e truncam `services`, `parts` e
 `supplies`, por isso o script `test:e2e` roda com `--maxWorkers=1`.

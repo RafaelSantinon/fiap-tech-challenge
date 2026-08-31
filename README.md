@@ -401,10 +401,16 @@ traz as inativas de volta na listagem.
 ## Testes
 
 ```bash
-npm test           # unitários
-npm run test:cov   # unitários com cobertura (domínios de auth e de OS em 100%)
-npm run test:e2e   # integração (requer Postgres — use: docker compose -f local/docker-compose.yml up -d db)
+npm test               # unitários
+npm run test:cov       # unitários com cobertura (domínios de auth e de OS em 100%)
+npm run test:e2e       # integração (requer Postgres — use: docker compose -f local/docker-compose.yml up -d db)
+npm run test:e2e -- parts   # integração de um módulo só
 ```
+
+Os testes de integração ficam em `src/test/`, **um arquivo por módulo**
+(`parts.e2e-spec.ts`, `service-order-workflow.e2e-spec.ts`, ...), com o
+bootstrap da aplicação e as fixtures compartilhados em `src/test/support/`.
+Juntos eles exercitam as 62 rotas da API.
 
 ## Análise de código com SonarQube
 

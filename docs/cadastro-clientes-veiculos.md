@@ -104,9 +104,11 @@ Consequências:
 - Unitários: `src/common/utils/document.util.spec.ts`,
   `plate.util.spec.ts`, os specs dos dois decorators e os specs de service e
   controller dos dois módulos.
-- Integração: `src/test/cadastro.e2e-spec.ts` percorre o fluxo completo
-  (cadastro do cliente → cadastro do veículo → listagem por cliente →
-  inativação) e confere os bloqueios 401 e 403.
+- Integração: `src/test/customers.e2e-spec.ts` (documento sem máscara, CPF e
+  CNPJ, busca por documento e por id, atualização e inativação) e
+  `src/test/vehicles.e2e-spec.ts` (normalização de placa, placa dos dois padrões,
+  busca por placa e por id, veículo para cliente inativo). Os dois fecham com o
+  bloco `access control` cobrindo 401 e 403.
 
 Os testes e2e usam o mesmo banco da aplicação e truncam as tabelas de cadastro,
 por isso o script `test:e2e` roda com `--maxWorkers=1`: duas suítes e2e em

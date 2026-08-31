@@ -362,17 +362,18 @@ Consequências:
   `notifications.service.spec.ts`. As transações são exercitadas com um
   `DataSource` falso cujo `transaction` executa o callback com um `EntityManager`
   mockado. Os cinco módulos estão em 100% de cobertura.
-- Integração: `src/test/ordens-servico.e2e-spec.ts` percorre o ciclo inteiro
-  contra o Postgres — abertura com número gerado → diagnóstico → inclusão dos
-  três grupos com o orçamento nascendo no terceiro → reserva conferida no
-  `GET /parts` → consulta pública de status e de orçamento sem token → aprovação
-  com baixa de estoque → recusa com devolução da reserva → finalização e entrega
-  → métricas como admin e **403** como mecânico → inativação devolvendo a
-  reserva.
-
-O e2e é também o critério do refactor que quebrou a etapa em cinco módulos: a
-reorganização só mexeu nas chamadas das duas rotas de métrica que mudaram de
-endereço. Todo o resto do arquivo continuou valendo sem edição, que é a prova de
-que a mudança foi estrutural e não comportamental.
+- Integração: um arquivo por módulo, todos contra o Postgres real.
+  `src/test/service-orders.e2e-spec.ts` cobre abertura com número gerado,
+  transições manuais válidas e inválidas e a inativação que devolve a reserva.
+  `src/test/service-order-workflow.e2e-spec.ts` percorre o ciclo inteiro —
+  inclusão dos três grupos com o orçamento nascendo no terceiro, alteração e
+  remoção de item, consulta pública sem token, aprovação com baixa de estoque,
+  recusa com devolução da reserva, finalização e entrega — e verifica a linha de
+  log do `NotificationsService`. `src/test/quotes.e2e-spec.ts` cobre os filtros
+  do recurso de orçamento e `src/test/service-order-metrics.e2e-spec.ts` as duas
+  métricas, incluindo o **403** para mecânico.
+  `src/test/stock.e2e-spec.ts` exercita a movimentação direto no `StockService`,
+  com um caso de **concorrência** que prova o lock pessimista: duas transações
+  disputando a última peça, só uma passa.
 
 O e2e roda com `--maxWorkers=1` porque compartilha o mesmo banco.
