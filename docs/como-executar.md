@@ -25,20 +25,27 @@ cp local/.env.example local/.env     # ajuste os segredos se quiser
 docker compose -f local/docker-compose.yml up -d --build
 ```
 
-Isso sobe quatro containers:
+Isso sobe cinco containers:
 
 | Container | Serviço | Porta |
 | --------- | ------- | ----- |
 | `oficina-api` | API NestJS | 3000 |
 | `oficina-db` | PostgreSQL 16 (dados da aplicação) | 5432 |
-| `oficina-seed` | seed do admin (roda uma vez e encerra) | — |
+| `oficina-seed` | migrations, admin e dados de demonstração (roda uma vez e encerra) | — |
 | `oficina-sonarqube` | SonarQube Community | 9000 |
 | `oficina-sonar-db` | PostgreSQL 16 (dados do SonarQube) | interna |
 
-O serviço `seed` roda assim que o banco fica saudável: aplica as **migrations** e
-cria o **administrador inicial**, depois encerra. A API só sobe quando ele termina
-com sucesso (`service_completed_successfully`). O seed é idempotente — se o admin
-já existir, ele não faz nada.
+O serviço `seed` roda assim que o banco fica saudável e executa dois passos:
+`seed-admin.ts` aplica as **migrations** e cria o **administrador inicial**, e
+`seed-demo.ts` popula o banco com **dados de demonstração** — clientes,
+veículos, catálogo e 44 ordens de serviço distribuídas pelos seis status, com
+orçamentos, estoque reservado e as métricas já respondendo. Depois o container
+encerra, e a API só sobe quando ele termina com sucesso
+(`service_completed_successfully`).
+
+Os dois são idempotentes: se o admin já existir ou se já houver dados de
+demonstração, não fazem nada. O que cada um cria e como usar está em
+[dados-de-demonstracao.md](dados-de-demonstracao.md).
 
 O seed vive em `local/seeds/seed-admin.ts`, fora de `src/`, porque é um recurso
 exclusivo do ambiente local: o estágio de runtime do `local/Dockerfile` copia
@@ -82,6 +89,7 @@ docker compose -f local/docker-compose.yml up -d db
 
 npm run migration:run     # cria as tabelas
 npm run seed              # cria o admin inicial (local/seeds/seed-admin.ts)
+npm run seed:demo         # popula os dados de demonstração (opcional)
 npm run start:dev         # API em modo watch na porta 3000
 ```
 
@@ -158,9 +166,13 @@ Cada serviço tem teto de CPU e memória definido no `local/docker-compose.yml`:
 | Serviço | CPU | Memória |
 | ------- | --- | ------- |
 | `sonarqube` | 2.0 | 3g |
+| `seed` | 1.0 | 1g |
 | `app` | 1.0 | 512m |
 | `db` | 0.5 | 512m |
 | `sonarqube-db` | 0.5 | 512m |
+
+O `seed` tem o teto mais alto que o `app` porque roda sob `ts-node`, que
+type-checka o projeto em memória — o `app` roda o `dist/` já compilado.
 
 Conferir o que está sendo consumido de fato:
 

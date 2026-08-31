@@ -22,7 +22,8 @@ que já será usado nos demais módulos.
 ```
 docs/                  # guias detalhados (execução e análise com SonarQube)
 local/                 # tudo para rodar local: Dockerfile, docker-compose, .env.example
-  seeds/               # seed do admin (não vai para a imagem da aplicação)
+  seeds/               # seeds do admin e dos dados de demonstração
+                       #   (não vão para a imagem da aplicação)
 src/
   modules/
     auth/              # login, refresh, logout, me + estratégia JWT
@@ -55,6 +56,8 @@ src/
 - [docs/catalogo-servicos-pecas-insumos.md](docs/catalogo-servicos-pecas-insumos.md) —
   campos de serviços, peças e insumos, normalização de código e o que já existe
   de controle de estoque.
+- [docs/dados-de-demonstracao.md](docs/dados-de-demonstracao.md) — o que o seed
+  cria, o mapa de ordens por status e os roteiros de teste manual.
 - [docs/ordens-de-servico.md](docs/ordens-de-servico.md) — máquina de status,
   orçamento automático, movimentação de estoque, APIs públicas do cliente e
   métricas de tempo.
@@ -72,7 +75,11 @@ docker compose -f local/docker-compose.yml up --build
 ```
 
 Isso sobe **PostgreSQL**, a **API** e o **SonarQube**. Um container `seed`
-efêmero aplica as **migrations** e cria o **admin inicial** antes da API subir.
+efêmero aplica as **migrations**, cria o **admin inicial** e popula o banco com
+**dados de demonstração** antes da API subir — 12 clientes, 20 veículos,
+catálogo completo e 44 ordens de serviço nos seis status, com orçamentos e
+métricas já respondendo. Veja
+[docs/dados-de-demonstracao.md](docs/dados-de-demonstracao.md).
 Em seguida:
 
 - API: <http://localhost:3000>
@@ -99,6 +106,7 @@ docker compose -f local/docker-compose.yml up -d db   # (ou use um Postgres pró
 
 npm run migration:run                          # cria as tabelas
 npm run seed                                   # cria o admin inicial
+npm run seed:demo                              # dados de demonstração (opcional)
 npm run start:dev                              # sobe a API em modo watch
 ```
 

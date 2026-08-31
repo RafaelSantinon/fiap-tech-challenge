@@ -27,7 +27,7 @@ services:
     container_name: oficina-seed
     restart: 'no'
     cpus: 1.0
-    mem_limit: 512m
+    mem_limit: 1g
     depends_on:
       db:
         condition: service_healthy
@@ -41,7 +41,13 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Administrador}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@oficina.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
-    command: npx ts-node -r tsconfig-paths/register local/seeds/seed-admin.ts
+      JWT_SECRET: ${JWT_SECRET:-troque-por-um-segredo-forte-de-acesso}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-troque-por-um-segredo-forte-de-refresh}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-10m}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+    command: >
+      sh -c "npx ts-node -r tsconfig-paths/register local/seeds/seed-admin.ts &&
+             npx ts-node -r tsconfig-paths/register local/seeds/seed-demo.ts"
 
   app:
     build:
