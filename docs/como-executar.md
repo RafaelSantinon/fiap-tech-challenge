@@ -145,6 +145,22 @@ npm run migration:run      # aplica as pendentes
 npm run migration:revert   # desfaz a última
 ```
 
+## Lint e formatação
+
+```bash
+npm run lint      # ESLint — só verifica, não altera arquivo
+npm run lint:fix  # ESLint corrigindo o que for automatizável
+npm run format    # Prettier
+```
+
+O `npm run lint` é o que entra no checklist antes de encerrar uma tarefa: ele
+sai com código diferente de zero se houver qualquer erro. O `lint:fix` e o
+`format` é que alteram arquivo.
+
+A configuração está em `eslint.config.mjs` (flat config do ESLint 10) e usa
+regras que dependem do type checker, então o lint carrega o `tsconfig.json` —
+por isso demora alguns segundos a mais que um linter puramente sintático.
+
 ## Testes
 
 ```bash
@@ -156,8 +172,9 @@ npm run test:e2e  # integração — precisa do Postgres no ar
 Para o e2e, suba só o banco antes:
 `docker compose -f local/docker-compose.yml up -d db`.
 
-Os scripts já limitam o paralelismo do Jest (`--maxWorkers=4`, e `2` no e2e)
-para não saturar a máquina — detalhes em [analise-sonarqube.md](analise-sonarqube.md).
+Os scripts já limitam o paralelismo do Jest (`--maxWorkers=4`, e `1` no e2e,
+porque as suítes de integração compartilham o mesmo banco) para não saturar a
+máquina — detalhes em [analise-sonarqube.md](analise-sonarqube.md).
 
 ## Limites de recursos da stack
 

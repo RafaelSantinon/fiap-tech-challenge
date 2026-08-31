@@ -4,9 +4,7 @@ export class CreateUsers1788108734000 implements MigrationInterface {
   name = 'CreateUsers1788108734000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`,
-    );
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
     await queryRunner.query(
       `CREATE TYPE "users_role_enum" AS ENUM('admin', 'mechanic')`,
     );

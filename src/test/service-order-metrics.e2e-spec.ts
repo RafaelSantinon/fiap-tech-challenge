@@ -18,8 +18,6 @@ describe('ServiceOrderMetrics (e2e)', () => {
 
   beforeAll(async () => {
     ctx = await bootstrapTestApp();
-    const customerId = await createCustomer(ctx);
-    const vehicleId = await createVehicle(ctx, customerId);
     catalog = await createCatalog(ctx);
   });
 

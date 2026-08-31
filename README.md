@@ -406,7 +406,20 @@ curl http://localhost:3000/quotes/<id> \
 reserva de estoque se ela ainda aguardava aprovação. `?includeInactive=true`
 traz as inativas de volta na listagem.
 
-## Testes
+## Qualidade e testes
+
+O linter é o **ESLint** com `eslint:recommended`, `typescript-eslint:recommended`
+e quatro regras que dependem do type checker — `no-floating-promises`,
+`no-misused-promises`, `await-thenable` e `require-await` —, escolhidas porque
+o código é todo assíncrono com TypeORM e uma Promise solta ali é bug silencioso.
+A formatação fica com o Prettier: o `eslint-config-prettier` desliga as regras de
+estilo do ESLint para que as duas ferramentas não briguem.
+
+```bash
+npm run lint           # verifica, não altera arquivo
+npm run lint:fix       # corrige o que for automatizável
+npm run format         # prettier
+```
 
 ```bash
 npm test               # unitários

@@ -38,7 +38,9 @@ describe('RolesGuard', () => {
   it('should allow when the user role is permitted', () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
-      .mockImplementation((key) => (key === 'roles' ? [UserRole.ADMIN] : false));
+      .mockImplementation((key) =>
+        key === 'roles' ? [UserRole.ADMIN] : false,
+      );
     expect(guard.canActivate(buildContext({ role: UserRole.ADMIN }))).toBe(
       true,
     );
@@ -47,7 +49,9 @@ describe('RolesGuard', () => {
   it('should block when the user role is not permitted', () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
-      .mockImplementation((key) => (key === 'roles' ? [UserRole.ADMIN] : false));
+      .mockImplementation((key) =>
+        key === 'roles' ? [UserRole.ADMIN] : false,
+      );
     expect(() =>
       guard.canActivate(buildContext({ role: UserRole.MECHANIC })),
     ).toThrow(ForbiddenException);
@@ -56,7 +60,9 @@ describe('RolesGuard', () => {
   it('should block when there is no user in the request', () => {
     jest
       .spyOn(reflector, 'getAllAndOverride')
-      .mockImplementation((key) => (key === 'roles' ? [UserRole.ADMIN] : false));
+      .mockImplementation((key) =>
+        key === 'roles' ? [UserRole.ADMIN] : false,
+      );
     expect(() => guard.canActivate(buildContext(undefined))).toThrow(
       ForbiddenException,
     );
