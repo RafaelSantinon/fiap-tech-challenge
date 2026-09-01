@@ -1,4 +1,4 @@
-# FIAP - tech challenge - Sistema Integrado de Atendimento e Execução de Serviços
+# FIAP - tech challenge - Sistema Integrado de Atendimento e Execução de Serviços para Oficina Mecânica
 
 Back-end do **Sistema Integrado de Atendimento e Execução de Serviços** de uma
 oficina mecânica — Tech Challenge da FIAP. A API cobre o ciclo
